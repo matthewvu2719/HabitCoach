@@ -1,0 +1,523 @@
+Habit Coach – Full Project Specification
+1. Overview
+The Personal Productivity Coach is a full‑stack application that combines React, Python (FastAPI/Flask), PostgreSQL, Docker, Machine Learning, and a built‑in AI chatbot to help users build, track, and optimize habits. The system intelligently analyzes the user’s time availability, difficulty levels of habits, and long‑term success patterns to provide personalized schedule recommendations.
+The project integrates:
+Smart habit tracking, recommendation, motivation
+
+
+ML‑powered time optimization
+
+
+AI‑based daily/weekly planning assistant
+
+
+Natural‑language habit entry ("I want to read more" → new habit)
+
+
+Generate a timetable to follow, can get input timetable from image then build a new timetable based on that
+
+
+This combination creates a realistic, technically impressive full‑stack ML product.
+
+2. Key Features
+2.1 Habit Management
+Users can:
+Add new habits with natural-language inputs
+
+
+Provide estimated time and frequency (daily/weekly/custom)
+
+
+Track completion and view history
+
+
+Categorize habits automatically via NLP (fitness, learning, social, wellness, productivity)
+
+
+2.2 AI Habit Coach
+The AI coach uses an ML engine + chatbot interface to:
+Recommend optimal times for habits based on schedule patterns
+
+
+Detect when a habit is too difficult or unrealistic
+
+
+Suggest reducing frequency or modifying habit structure
+
+
+Identify overloaded schedules and recommend rescheduling
+
+
+Suggest alternate forms of habits (e.g., message instead of call)
+
+
+Encourage healthy relationships by integrating social habits
+
+
+2.3 Scheduling Engine
+The system integrates all habits into a cohesive weekly plan by:
+Checking for time conflicts
+
+
+Predicting user availability
+
+
+Ranking habits by cognitive/emotional load
+
+
+Adjusting habits when necessary
+
+
+2.4 Machine Learning Components
+NLP Habit Parsing: Converts natural sentences into structured habits.
+
+
+Difficulty Estimation Model: Estimates likelihood of habit completion.
+
+
+Personal Time Budget Model: Estimates how much time the user actually has per week.
+
+
+Adaptive Recommendation Model: Learns over time and adjusts user plans.
+
+
+2.5 AI Chatbot
+Powered by Python and integrated with the ML engine.
+Helps users log habits
+
+
+Suggests improvements
+
+
+Provides weekly summaries
+
+
+
+3. Example User Flow
+User Input
+"I want to add reading and learning French to my habits."
+System Behavior
+NLP parses the sentence → identifies two habits.
+
+
+System asks for frequency and time estimates.
+
+
+ML categorizes these as learning/cognitive habits.
+
+
+Scheduler checks available time slots.
+
+
+Weekly plan updated with optimal times.
+
+
+Coach checks if time budget is exceeded.
+
+
+If overloaded → suggests modifying frequency or swapping out another habit.
+
+
+
+4. Social & Relationship Habits
+Users can add:
+Weekly call to family
+
+
+Weekly check-in with friends
+
+
+Monthly catch-up sessions
+
+
+AI Capabilities:
+Detects if calls/messages are consistently skipped.
+
+
+Suggests better timing or reduced commitment.
+
+
+Tracks emotional impact (optional mood inputs).
+
+
+Recommends relationship habits if user tends to be happier when doing them.
+
+
+
+5. Architecture Overview
+Frontend (React)
+Habit dashboard
+
+
+Weekly schedule visualizer
+
+
+Chatbot panel
+
+
+Habit creation form
+
+
+Insights + analytics
+
+
+Backend (Python + FastAPI)
+Habit CRUD endpoints
+
+
+ML services (NLP, recommendation engine)
+
+
+Chatbot engine
+
+
+Scheduling algorithms
+
+
+Database (PostgreSQL)
+Tables:
+Users
+
+
+Habits
+
+
+Habit_Category
+
+
+Logs (daily/weekly)
+
+
+Schedules
+
+
+Time_Budget
+
+
+Recommendations
+
+
+Containerization (Docker)
+Frontend container
+
+
+Backend container
+
+
+Postgres container
+
+
+Optional: Redis for caching
+
+
+Docker Compose for orchestration
+
+
+
+6. Technical Breakdown
+6.1 Machine Learning Models
+NLP Habit Parser (spaCy / custom model)
+ Extracts:
+
+
+Habit name
+
+
+Category
+
+
+Frequency
+
+
+Estimated time
+
+
+Difficulty Estimator
+
+
+Inputs: time required, load, past success rate
+
+
+Output: difficulty score (0–1)
+
+
+Time Budget Predictor
+
+
+Learns actual free time per week
+
+
+Predicts user’s realistic capacity
+
+
+Recommendation Engine
+
+
+Suggests rescheduling
+
+
+Detects overloaded periods
+
+
+Suggests reducing frequency or breaking habits into smaller tasks
+
+
+
+7. Key Scenarios
+Scenario 1: User Overloaded
+User adds:
+Reading 1 hour/day
+
+
+Gym 1 hour/day
+
+
+French learning 45 min/day
+
+
+Weekly family call (45 min)
+
+
+System detects total weekly time exceeds user’s predicted available time.
+AI Recommendation:
+Reduce French to 3 days/week
+
+
+Move gym to alternate days
+
+
+Shift family call to a lower-load day
+
+
+
+Scenario 2: User Skips a Habit Multiple Times
+If user misses French learning 4 times in a row:
+AI recommends lowering difficulty or moving time slot.
+
+
+Suggests smaller steps (e.g., 10 minutes/day).
+
+
+
+Scenario 3: User Adds Relationship Habit
+"Add weekly check-in with friends."
+System:
+Categorizes as social/well-being
+
+
+Chooses optimal time
+
+
+Tracks consistency
+
+
+Detects emotional trends if mood tracking is enabled
+
+
+
+7.5 Timetable Generation, Adjustment & External Timetable Import
+Real-Time Adjustment Based on Actual Time Spent
+The system supports dynamic schedule adjustment when users report how long a task or habit actually took. This enables the AI to keep the timetable realistic, flexible, and personalized.
+User Reporting Flow
+After completing a habit or event, the app asks:
+"How long did this actually take?"
+
+
+Optional mood/energy rating
+
+
+Users can also manually report:
+"I took 1 hour instead of 45 minutes to do homework."
+
+
+"Gym took 20 minutes less than scheduled."
+
+
+AI-Driven Adjustment Logic
+When users report deviations in time spent, the system will:
+Recalculate remaining free time for the day/week
+
+
+Shift later tasks forward or backward
+
+
+Add a buffer (default: +15 minutes) to future time blocks for similar tasks
+
+
+Learn a personal duration model, improving predictions over time
+
+
+Overrun Example
+Scheduled: French practice — 30 minutes
+ Actual: 50 minutes
+System actions:
+Mark session as 50 minutes
+
+
+Adjust the next available time block by shifting other tasks later
+
+
+Detect if any task is pushed into conflict; automatically reschedule
+
+
+Increase future French session estimates from 30 → ~40 minutes
+
+
+Add a 15-minute buffer for next time
+
+
+Underrun Example
+Scheduled: Gym — 1 hour
+ Actual: 40 minutes
+System actions:
+Mark actual duration
+
+
+Free up extra 20 minutes
+
+
+Suggest: "Do you want to fill this with a small habit?" (e.g., reading for 10 minutes)
+
+
+Update future gym estimates to ~50 minutes with buffer
+
+
+Adaptive Duration Learning
+The AI learns over time:
+Types of tasks you usually underestimate (e.g., assignments)
+
+
+Tasks you usually finish early (e.g., meditation)
+
+
+Time-of-day effects (e.g., slower in evenings)
+
+
+Day-of-week patterns
+
+
+This personal duration model improves timetable accuracy.
+
+7.6 External Timetable Import
+Automatic Timetable Generation
+The system can generate a dynamic weekly timetable based on:
+User’s fixed commitments (work, classes, meetings)
+
+
+Available free time windows
+
+
+Existing habits
+
+
+AI‑recommended habits or rescheduled items
+
+
+The generated timetable includes:
+Color‑coded categories (learning, fitness, social, wellness, productivity)
+
+
+Time‑blocked segments
+
+
+Adaptive rescheduling when conflicts occur
+
+
+Importing Existing Timetables (PDF / Word / Image)
+Users can upload an existing timetable in the form of:
+PDF
+
+
+Microsoft Word (.doc/.docx)
+
+
+Image (PNG/JPG)
+
+
+The system performs the following:
+Document parsing using OCR + table extraction to detect:
+
+
+Days of week
+
+
+Time blocks
+
+
+Course/work labels
+
+
+Block durations
+
+
+Automatic creation of fixed events in the database.
+
+
+Integration with the scheduling engine to:
+
+
+Fill unused gaps with habit slots
+
+
+Ensure no overlap between fixed events and habits
+
+
+Adjust habit frequency if no free time is available
+
+
+Smart Timetable Merging
+When the user provides a timetable from school/work:
+The AI merges it with existing habits
+
+
+Detects optimal habit placement around classes/meetings
+
+
+Warns about overloaded days
+
+
+Regeneration on Changes
+When the user adds new habits or changes availability:
+The timetable is regenerated automatically
+
+
+A diff view highlights added, moved, or removed blocks
+
+
+
+8. Why This Project Is Strong for a Resume
+Demonstrates full-stack skills with real microservices architecture
+
+
+Shows use of Docker for production-like deployment
+
+
+Incorporates both ML and NLP in meaningful ways
+
+
+Realistic business logic like time budgeting, scheduling, and habit analysis
+
+
+Includes a chatbot, making the system interactive and AI-driven
+
+
+
+9. Possible Extensions
+Mobile app integration
+
+
+Automated calendar syncing (Google Calendar API)
+
+
+Wearable device integration (Fitbit, Apple Health)
+
+
+Team productivity features
+
+
+Gamification badges
+
+
+
+10. Summary
+The Personal Productivity Coach is a full-stack, AI-powered habit management and planning system combining natural language understanding, adaptive scheduling, and personalized recommendations. It leverages Docker, PostgreSQL, React, and Python-based ML services to build a polished, production-ready software engineering portfolio project.

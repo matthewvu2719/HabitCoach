@@ -1,0 +1,553 @@
+Habit Coach — Technology Guide & Implementation Steps
+This guide explains each technology used in the project, what it does, why it matters, and step-by-step implementation notes with concrete code examples and best-practices. Use this as a learning resource and developer handbook while building the project.
+
+Table of contents
+Overview
+
+
+Tech stack and responsibilities
+
+
+Development environment & setup
+
+
+Backend (FastAPI) — architecture & step-by-step
+
+
+Frontend (React) — architecture & step-by-step
+
+
+Database (PostgreSQL) — schema & migration guide
+
+
+ML & NLP — models, training, and integration
+
+
+Timetable import (PDF/Doc/Image) — parsing & OCR
+
+
+Docker & Docker Compose — containers & orchestration
+
+
+DevOps notes: testing, CI/CD, deployment
+
+
+Why each piece of code matters (principles)
+
+
+Learning resources & next steps
+
+
+
+1. Overview
+This document explains how the following pieces fit together and how to implement them:
+React frontend: UI, timetable visualizer, chat UI
+
+
+FastAPI backend: REST API, authentication, scheduling logic
+
+
+PostgreSQL: persistent storage
+
+
+ML service: NLP parser, difficulty estimator, time budget predictor
+
+
+OCR/timetable import: pdfplumber / pytesseract
+
+
+Docker: containerization and development environment
+
+
+
+2. Tech stack and responsibilities
+React (frontend)
+
+
+Role: Render UI, interact with REST API, manage client state, show analytics.
+
+
+Why: Fast developer feedback, component model, large ecosystem.
+
+
+FastAPI (backend)
+
+
+Role: Provide API endpoints, run scheduling logic, host ML microservices (or proxy to them), manage authentication.
+
+
+Why: Fast, async-ready, excellent developer ergonomics and docs.
+
+
+PostgreSQL (DB)
+
+
+Role: Store users, habits, logs, schedules, recommendations.
+
+
+Why: ACID, robust querying, time-based queries, JSON support for flexible data.
+
+
+SQLAlchemy + Alembic
+
+
+Role: ORM and migrations.
+
+
+Why: Easier to work with Python objects and keep schema changes tracked.
+
+
+spaCy / Transformers / scikit-learn (ML)
+
+
+Role: NLP parsing, embeddings, classification for difficulty and time prediction.
+
+
+Why: Mature libraries, good for production prototypes.
+
+
+pytesseract / pdfplumber (OCR & PDF parsing)
+
+
+Role: Extract timetable entries from user-provided files.
+
+
+Why: Off-the-shelf tools for extracting text from document images and PDFs.
+
+
+Docker & Docker Compose
+
+
+Role: Isolate services, reproducible environment, easy onboarding for team.
+
+
+Why: Aligns dev & production environments; reduces "works on my machine" issues.
+
+
+Optional: Redis, Celery
+
+
+Role: Task queue, caching, background jobs (notifications, scheduled rescheduling).
+
+
+Why: Offload long-running jobs, handle scheduled tasks reliably.
+
+
+
+3. Development environment & setup (concise)
+Install Docker Desktop, Python 3.10+, Node.js 18+
+
+
+Clone repo and create directories: backend, frontend, ml, infra
+
+
+Use docker compose (development mode) to boot DB + backend while developing frontend locally.
+
+
+Use virtualenv for backend development:
+
+
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+For frontend:
+
+
+cd frontend
+npm install
+npm start
+
+
+4. Backend (FastAPI) — architecture & step-by-step
+4.1 Project layout (suggested)
+backend/
+├── app/
+│   ├── main.py
+│   ├── api/
+│   │   ├── v1/
+│   │   │   ├── habits.py
+│   │   │   ├── logs.py
+│   │   │   └── nlp.py
+│   ├── core/
+│   │   └── config.py
+│   ├── db/
+│   │   ├── base.py
+│   │   └── models.py
+│   ├── services/
+│   │   ├── scheduler.py
+│   │   └── ml_client.py
+│   └── schemas/
+│       └── habit.py
+├── requirements.txt
+└── Dockerfile
+
+4.2 Main dependencies
+fastapi, uvicorn
+
+
+sqlalchemy, asyncpg, alembic
+
+
+pydantic, python-dotenv
+
+
+4.3 Example: Habit model (SQLAlchemy)
+# app/db/models.py
+from sqlalchemy import Column, Integer, String, Text, Boolean, Interval, JSON
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class Habit(Base):
+    __tablename__ = 'habits'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
+    category = Column(String)
+    estimated_minutes = Column(Integer)
+    frequency = Column(String)  # 'daily', 'weekly', or cron-like
+    meta = Column(JSON)
+
+4.4 Example: FastAPI endpoint (create habit)
+# app/api/v1/habits.py
+from fastapi import APIRouter, Depends
+from app.schemas.habit import HabitCreate
+from app.db import crud
+
+router = APIRouter()
+
+@router.post('/', response_model=schemas.HabitOut)
+async def create_habit(h: HabitCreate, user=Depends(get_current_user)):
+    habit = await crud.create_habit(user.id, h)
+    return habit
+
+4.5 Scheduler basics (pseudocode)
+Input: user_id, list of fixed events, existing habits
+
+
+Output: weekly schedule (list of time blocks)
+
+
+Algorithm sketch:
+Load fixed events and occupied time ranges
+
+
+Sort habits by priority (cognitive load, user preference)
+
+
+For each habit, find a free slot matching estimated time and preferred window
+
+
+If insufficient time, call recommendation engine to reduce frequency or suggest micro-habit
+
+
+Save schedule to DB
+
+
+Why this matters: Keeps the system deterministic and debuggable; modular scheduler allows plugging ML signals later.
+
+5. Frontend (React) — architecture & step-by-step
+5.1 Project layout (suggested)
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── HabitForm.jsx
+│   │   ├── WeeklyGrid.jsx
+│   │   └── Chatbot.jsx
+│   ├── pages/
+│   ├── api/
+│   │   └── client.js
+│   └── App.jsx
+
+5.2 Habit creation flow (implementation steps)
+User types natural language into HabitForm.
+
+
+Frontend POST /nlp/parse with the text.
+
+
+Backend returns structured {name, estimated_minutes, frequency, category}.
+
+
+Show suggested fields; user confirms.
+
+
+POST /habits to create.
+
+
+5.3 WeeklyGrid component
+Render a 7x24 grid or 7x48 for half-hour blocks
+
+
+Render fixed events + habit blocks
+
+
+Support drag-and-drop to reschedule
+
+
+Why this matters: Good UX reduces cognitive load and improves adoption.
+
+6. Database (PostgreSQL) — schema & migration guide
+Suggested tables and columns:
+users (id, email, hashed_password, preferences JSON)
+
+
+habits (id, user_id, name, category, estimated_minutes, frequency, meta JSON)
+
+
+events (id, user_id, title, start_ts, end_ts, fixed boolean)
+
+
+logs (id, user_id, habit_id, date, actual_minutes, mood)
+
+
+schedules (id, user_id, week_start, schedule JSON)
+
+
+recommendations (id, user_id, payload JSON, created_at)
+
+
+Migrations
+Use Alembic for incremental changes.
+
+
+Steps:
+
+
+alembic init alembic
+
+
+configure alembic.ini with DB URL
+
+
+alembic revision --autogenerate -m "create initial tables"
+
+
+alembic upgrade head
+
+
+Why this matters: Trackable, reversible schema changes for team collaboration.
+
+7. ML & NLP — models, training, and integration
+7.1 NLP Habit Parser
+Use spaCy to do entity extraction + custom rule-based parsing for times and frequencies.
+
+
+Example pipeline:
+
+
+Tokenize + POS tag
+
+
+Pattern-based matcher for durations/frequency
+
+
+Return structured object
+
+
+Example rule (pseudocode):
+If text contains "daily", frequency = "daily"
+
+
+If text matches "X minutes" → estimated_minutes
+
+
+7.2 Difficulty Estimator
+Initial approach: logistic regression or random forest with engineered features:
+
+
+historical completion rate for similar habits
+
+
+estimated_minutes
+
+
+time of day
+
+
+day of week
+
+
+Labels: succeeded vs failed
+
+
+Training loop (sketch):
+Extract features from logs
+
+
+Train model, validate, save model as joblib file
+
+
+Load model in ML service and provide /ml/difficulty endpoint
+
+
+7.3 Time Budget Predictor
+Use simple regression model to predict weekly available minutes
+
+
+Features: scheduled fixed events minutes, historical free time, self-reported availability
+
+
+7.4 Integration
+ML runs as a microservice (Flask/FastAPI) or inside backend process for simplicity.
+
+
+Expose endpoints for predictions and consumption by scheduler.
+
+
+Why this matters: Separating ML allows independent development and focused scaling.
+
+8. Timetable import (PDF/Doc/Image) — parsing & OCR
+8.1 PDF parsing (pdfplumber)
+Use pdfplumber to extract tables and text from PDFs.
+
+
+Parse detected tables for columns like Days, Time, Event name.
+
+
+8.2 OCR for images (pytesseract)
+Preprocess image (deskew, threshold)
+
+
+Extract text and run simple regex-based table detectors
+
+
+8.3 Word documents (.docx)
+Use python-docx to extract paragraphs and tables
+
+
+Post-processing:
+Normalize time ranges to ISO timestamps
+
+
+Create events entries marked as fixed
+
+
+Merge with existing schedule
+
+
+Why this matters: Making onboarding frictionless (importing school/work timetables) significantly increases real-world usability.
+
+9. Docker & Docker Compose — containers & orchestration
+9.1 Why Docker
+Reproducible environment
+
+
+Easy onboarding for team members
+
+
+Isolate heavy ML deps from developer machines
+
+
+9.2 Recommended containers
+frontend (node)
+
+
+backend (python)
+
+
+ml service (python + torch/spacy)
+
+
+db (postgres)
+
+
+redis (optional)
+
+
+9.3 Example docker-compose (concise)
+version: '3.8'
+services:
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_PASSWORD: password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/productivity
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+  frontend:
+    build: ./frontend
+    ports:
+      - 3000:3000
+    depends_on:
+      - backend
+volumes:
+  db-data:
+
+Why this matters: Developers can docker compose up --build and run entire stack locally.
+
+10. DevOps notes: testing, CI/CD, deployment
+Testing: Use pytest for backend, Jest/React Testing Library for frontend
+
+
+CI: GitHub Actions to run tests and build containers
+
+
+CD: Publish images to Docker Hub / GitHub Container Registry. Deploy with a simple host or Kubernetes for scale.
+
+
+Secrets: Use environment variables and a secret manager in production
+
+
+Why this matters: Ensures code quality and repeatable deployments.
+
+11. Why each piece of code matters (principles)
+Modularity: Keep ML, scheduler, and API separate so each can evolve independently.
+
+
+Observability: Log decisions (why a habit was rescheduled) — useful for debugging & model training.
+
+
+Fail-safe defaults: If ML is unavailable, scheduler should fall back to deterministic rules.
+
+
+User control & transparency: Always present suggested changes to user instead of silently modifying critical habits.
+
+
+
+12. Learning resources & next steps
+FastAPI docs: https://fastapi.tiangolo.com
+
+
+React docs: https://reactjs.org
+
+
+Postgres: https://www.postgresql.org/docs/
+
+
+spaCy: https://spacy.io/usage
+
+
+pdfplumber: https://github.com/jsvine/pdfplumber
+
+
+pytesseract: https://github.com/madmaze/pytesseract
+
+
+Docker: https://docs.docker.com/get-started/
+
+
+
+Appendix: Minimal example snippets
+FastAPI habit create (POST)
+
+
+Simple spaCy parse function
+
+
+Basic scheduler pseudocode
+
+
+(See repository backend/app for full examples.)
+
+This guide should give you step-by-step clarity on what each technology does, how they'll be implemented, and why each component is necessary. Use it as a companion to the task roadmap and the detailed README in your project repository.
+
